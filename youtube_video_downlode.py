@@ -1,23 +1,42 @@
-from flask import Flask, request, render_template, send_from_directory
+import su_dlp
 import os
 
-app = Flask(__name__)
+def download_youtube_video(url, output_path="video"):
+    try:
+        # Create output folder if it does not exist
+        if not os.path.exists(output_path):
+            os.makedirs(output_path)
 
-UPLOAD_FOLDER = "videos"
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+        # yt_dlp options
+        ydl_opts = {
+            'format': 'bestvideo+bestaudio/best',
+            'outtmpl': f'{output_path}/%(title)s.%(ext)s',
+            'noplaylist': True  # Download single video only
+        }
 
-@app.route("/", methods=["GET", "POST"])
-def home():
-    if request.method == "POST":
-        file = request.files["video"]
-        if file:
-            file.save(os.path.join(UPLOAD_FOLDER, file.filename))
-    files = os.listdir(UPLOAD_FOLDER)
-    return render_template("index.html", files=files)
+        print(f"Attempting to download: {url}")
 
-@app.route("/download/<filename>")
-def download(filename):
-    return send_from_directory(UPLOAD_FOLDER, filename, as_attachment=True)
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            ydl.download([url])
+
+        print(f"Download completed! Video saved to '{output_path}' folder.")
+
+    except yt_dlp.utils.DownloadError as de:
+        print(f"Download error: {str(de)}")
+
+        # List available formats if download fails
+        print("\nListing available formats...")
+
+        try:
+            with yt_dlp.YoutubeDL({'listformats': True}) as ydl:
+                ydl.download([url])
+        except Exception as e:
+            print(f"Failed to list formats: {str(e)}")
+
+    except Exception as e:
+        print(f"An error occurred: {str(e)}")
+
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    video_url = input("Enter the YouTube video URL: ")
+    download_youtube_video(video_url)
